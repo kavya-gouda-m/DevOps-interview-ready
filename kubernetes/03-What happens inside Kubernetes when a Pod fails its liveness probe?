@@ -1,0 +1,31 @@
+## What happens inside Kubernetes when a Pod fails its liveness probe?
+
+Most candidates say: “It restarts.”
+But that’s surface-level.
+
+1. API Server Interaction
+The kubelet reports probe failure to the API Server.
+API Server records the Pod as unhealthy in etcd.
+
+2. Kubelet & Container Runtime
+Kubelet triggers a container kill via the runtime (containerd/CRI-O).
+Depending on the restartPolicy, it restarts or leaves the Pod terminated
+
+3. Controller Reconciliation
+Deployment/ReplicaSet controller notices fewer healthy Pods than desired.
+It schedules a replacement Pod on available nodes if required.
+
+4. Scheduler’s Role
+If the Pod needs to move, Scheduler evaluates node resources, taints/tolerations, and affinity before rescheduling
+
+5. Networking Implications
+kube-proxy updates IPVS/iptables rules, and unhealthy endpoints are removed from Services.
+DNS resolves correctly, but traffic routing excludes the failing Pod
+
+6. Observability Layer
+Events are fired (kubectl describe pod shows Probe failures).
+If Prometheus isn’t scraping kubelet or events, you may never see it until users complain.
+
+1. What if liveness is misconfigured or too aggressive?
+2. What if readiness fails instead & how does traffic routing differ?
+3. How would you debug when logs are empty, but probes still fail intermittently?
